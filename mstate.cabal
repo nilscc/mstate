@@ -1,0 +1,17 @@
+Name:           mstate
+Version:        0.1
+Description:    MState uses MVars to maintain state in a concurrent
+                application.
+
+Cabal-Version:  >= 1.2
+Build-Type:     Simple
+
+Library
+    GHC-Options:        -Wall -Werror
+    Hs-Source-Dirs:     src
+    Build-Depends:
+        base    == 4.*,
+        mtl     == 1.*
+
+    Exposed-Modules:
+        Control.Concurrent.MState
