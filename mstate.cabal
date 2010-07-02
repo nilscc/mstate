@@ -1,7 +1,6 @@
 Name:           mstate
 Version:        0.1
-Description:    MState uses MVars to maintain state in a concurrent
-                application.
+Description:    MState: A consistent State monad for concurrent applications.
 
 Cabal-Version:  >= 1.2
 Build-Type:     Simple

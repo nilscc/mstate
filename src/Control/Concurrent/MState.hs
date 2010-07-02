@@ -1,5 +1,19 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
+---------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Concurrent.MState
+-- Copyright   :  (c) Nils Schweinsberg 2010
+-- License     :  BSD3-style (see LICENSE)
+--
+-- Maintainer  :  mail@n-sch.de
+-- Stability   :  unstable
+-- Portability :  portable
+--
+-- MState: A consistent State monad for concurrent applications.
+--
+---------------------------------------------------------------------------
+
 module Control.Concurrent.MState
     ( 
       -- * The MState Monad
