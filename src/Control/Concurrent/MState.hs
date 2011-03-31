@@ -18,11 +18,12 @@ module Control.Concurrent.MState
     ( 
       -- * The MState Monad
       MState
-
+    , runMState
     , evalMState
     , execMState
     , mapMState
     , withMState
+    , modifyM
 
       -- * Concurrency
     , Forkable (..)
@@ -34,17 +35,20 @@ module Control.Concurrent.MState
 
 import Control.Monad
 import Control.Monad.State.Class
-import Control.Monad.Trans
+import Control.Monad.Cont
+import Control.Monad.Error
+import Control.Monad.Reader
+import Control.Monad.Writer
 
 import Control.Concurrent
-import Data.IORef
 
 import qualified Control.Exception as E
+
 
 -- | The MState is an abstract data definition for a State monad which can be
 -- used in concurrent applications. It can be accessed with @evalMState@ and
 -- @execMState@. To start a new state thread use @forkM@.
-newtype MState t m a = MState { runMState :: (IORef t, Chan (MVar ())) -> m a }
+newtype MState t m a = MState { runMState' :: (MVar t, Chan (MVar ())) -> m a }
 
 
 -- | The class which is needed to start new threads in the MState monad. Don't
@@ -52,8 +56,12 @@ newtype MState t m a = MState { runMState :: (IORef t, Chan (MVar ())) -> m a }
 class (MonadIO m) => Forkable m where
     fork :: m () -> m ThreadId
 
+
 instance Forkable IO where
     fork = forkIO
+
+instance Forkable (ReaderT s IO) where
+    fork newT = ask >>= liftIO . forkIO . runReaderT newT
 
 
 catchMVar :: IO a -> (E.BlockedIndefinitelyOnMVar -> IO a) -> IO a
@@ -75,24 +83,32 @@ waitForTermination c = liftIO $ do
               (const $ return ())
 
 
+-- | Run the MState and return both, the function value and the state value
+runMState :: Forkable m
+           => MState t m a      -- ^ Action to evaluate
+           -> t                 -- ^ Initial state value
+           -> m (a,t)
+runMState m t = do
+
+    ref <- liftIO $ newMVar t
+    c   <- liftIO newChan
+    mv  <- liftIO newEmptyMVar
+
+    _  <- runMState' (forkM $ m >>= liftIO . putMVar mv) (ref, c)
+
+    waitForTermination c
+    a  <- liftIO $ takeMVar mv
+    t' <- liftIO $ readMVar ref
+    return (a,t')
+
+
 -- | Evaluate the MState monad with the given initial state, throwing away the
 -- final state stored in the MVar.
 evalMState :: Forkable m
            => MState t m a      -- ^ Action to evaluate
            -> t                 -- ^ Initial state value
            -> m a
-evalMState m t = do
-
-    ref <- liftIO $ newIORef t
-    c   <- liftIO newChan
-    amv <- liftIO newEmptyMVar
-
-    -- Start new state thread
-    _   <- runMState (forkM $ m >>= liftIO . putMVar amv) (ref, c)
-    -- waitForTermination c
-
-    -- Return m's value
-    liftIO $ readMVar amv
+evalMState m t = runMState m t >>= return . fst
 
 
 -- | Execute the MState monad with a given initial state. Returns the value of
@@ -101,17 +117,7 @@ execMState :: Forkable m
            => MState t m a      -- ^ Action to execute
            -> t                 -- ^ Initial state value
            -> m t
-execMState m t = do
-
-    -- Prepare channel & state MVar
-    ref <- liftIO $ newIORef t
-    c   <- liftIO newChan
-
-    _   <- runMState (forkM $ m >> return ()) (ref, c)
-    waitForTermination c
-
-    -- Return state
-    liftIO $ readIORef ref
+execMState m t = runMState m t >>= return . snd
 
 
 -- | Map a stateful computation from one @(return value, state)@ pair to
@@ -122,10 +128,10 @@ mapMState :: (MonadIO m, MonadIO n)
           -> MState t n b
 mapMState f m = MState $ \s@(r,_) -> do
     ~(b,v') <- f $ do
-        a <- runMState m s
-        v <- liftIO $ readIORef r
+        a <- runMState' m s
+        v <- liftIO $ readMVar r
         return (a,v)
-    liftIO $ writeIORef r v'
+    _ <- liftIO $ swapMVar r v'
     return b
 
 
@@ -135,8 +141,8 @@ withMState :: (MonadIO m)
            -> MState t m a
            -> MState t m a
 withMState f m = MState $ \s@(r,_) -> do
-    liftIO $ modifyIORef r f
-    runMState m s
+    liftIO $ modifyMVar_ r (return . f)
+    runMState' m s
 
 
 -- | Start a new thread, using @forkIO@. The main process will wait for all
@@ -149,7 +155,12 @@ forkM m = MState $ \s@(_,c) -> do
     -- Add new thread MVar to our waiting channel
     w <- liftIO newEmptyMVar
     liftIO $ writeChan c w
-    fork $ runMState m s >> liftIO (putMVar w ())
+    fork $ runMState' m s >> liftIO (putMVar w ())
+
+
+-- | Modify the MState. Block all other threads from accessing the state.
+modifyM :: (MonadIO m) => (t -> t) -> MState t m ()
+modifyM f = MState $ \(t,_) -> liftIO $ modifyMVar_ t (return . f)
 
 
 --------------------------------------------------------------------------------
@@ -159,22 +170,31 @@ forkM m = MState $ \s@(_,c) -> do
 instance (Monad m) => Monad (MState t m) where
     return a = MState $ \_ -> return a
     m >>= k  = MState $ \t -> do
-        a <- runMState m t
-        runMState (k a) t
+        a <- runMState' m t
+        runMState' (k a) t
     fail str = MState $ \_ -> fail str
 
 instance (Monad m) => Functor (MState t m) where
     fmap f m = MState $ \t -> do
-        a <- runMState m t
+        a <- runMState' m t
         return (f a)
 
 instance (MonadPlus m) => MonadPlus (MState t m) where
     mzero       = MState $ \_       -> mzero
-    m `mplus` n = MState $ \t -> runMState m t `mplus` runMState n t
+    m `mplus` n = MState $ \t -> runMState' m t `mplus` runMState' n t
 
 instance (MonadIO m) => MonadState t (MState t m) where
-    get     = MState $ \(r,_) -> liftIO $ readIORef r
-    put val = MState $ \(r,_) -> liftIO $ writeIORef r val
+    get     = MState $ \(r,_) -> liftIO $ readMVar r
+    put val = MState $ \(r,_) -> do _ <- liftIO $ swapMVar r val
+                                    return ()
+
+instance (MonadFix m) => MonadFix (MState t m) where
+    mfix f = MState $ \s -> mfix $ \a -> runMState' (f a) s
+
+
+--------------------------------------------------------------------------------
+-- mtl instances
+--------------------------------------------------------------------------------
 
 instance MonadTrans (MState t) where
     lift m = MState $ \_ -> m
@@ -182,6 +202,24 @@ instance MonadTrans (MState t) where
 instance (MonadIO m) => MonadIO (MState t m) where
     liftIO = lift . liftIO
 
+instance (MonadCont m) => MonadCont (MState t m) where
+    callCC f = MState $ \s ->
+        callCC $ \c ->
+            runMState' (f (\a -> MState $ \_ -> c a)) s
+
+instance (MonadError e m) => MonadError e (MState t m) where
+    throwError       = lift . throwError
+    m `catchError` h = MState $ \s ->
+        runMState' m s `catchError` \e -> runMState' (h e) s
+
+instance (MonadReader r m) => MonadReader r (MState t m) where
+    ask       = lift ask
+    local f m = MState $ \s -> local f (runMState' m s)
+
+instance (MonadWriter w m) => MonadWriter w (MState t m) where
+    tell     = lift . tell
+    listen m = MState $ listen . runMState' m
+    pass   m = MState $ pass   . runMState' m
 
 
 {- $example
