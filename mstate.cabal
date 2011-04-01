@@ -3,13 +3,13 @@ Synopsis:       MState: A consistent State monad for concurrent applications.
 Description:    MState offers a State monad which can be used in concurrent
                 applications. It also manages new threads and waits until the
                 whole state monad has been evaluated/executed before it returns
-                the state values.
+                the state values (if desired).
 
 Author:         Nils Schweinsberg
 Maintainer:     <mail@n-sch.de>
 
-Version:        0.2
-Category:       Concurrent, Monads
+Version:        0.2.2
+Category:       Concurrency, Monads
 License:        BSD3
 License-File:   LICENSE
 Cabal-Version:  >= 1.6
