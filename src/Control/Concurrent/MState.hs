@@ -212,10 +212,8 @@ instance (Monad m) => Monad (MState t m) where
         runMState' (k a) t
     fail str = MState $ \_ -> fail str
 
-instance (Monad m) => Functor (MState t m) where
-    fmap f m = MState $ \t -> do
-        a <- runMState' m t
-        return (f a)
+instance (Functor m) => Functor (MState t m) where
+    fmap f m = MState $ \t -> fmap f (runMState' m t)
 
 instance (MonadPlus m) => MonadPlus (MState t m) where
     mzero       = MState $ \_       -> mzero
