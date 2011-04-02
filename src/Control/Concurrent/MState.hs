@@ -31,6 +31,7 @@ module Control.Concurrent.MState
       -- * Concurrency
     , Forkable (..)
     , forkM
+    , forkM_
     , killMState
 
       -- * Example
@@ -183,6 +184,13 @@ forkM m = MState $ \s@(_,c) -> do
         writeTVar c ((tid,w):r)
 
     return tid
+
+forkM_ :: (MonadPeelIO m, Forkable m)
+       => MState t m ()         -- ^ State action to be forked
+       -> MState t m ()
+forkM_ m = do
+  _ <- forkM m
+  return ()
 
 -- | Kill all threads in the current `MState` application.
 killMState :: Forkable m => MState t m ()
