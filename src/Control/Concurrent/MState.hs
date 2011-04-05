@@ -40,6 +40,7 @@ module Control.Concurrent.MState
 
 import Prelude hiding (catch)
 
+import Control.Applicative
 import Control.Monad.State.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -212,8 +213,12 @@ instance (Monad m) => Monad (MState t m) where
         runMState' (k a) t
     fail str = MState $ \_ -> fail str
 
-instance (Functor m) => Functor (MState t m) where
+instance (Functor f) => Functor (MState t f) where
     fmap f m = MState $ \t -> fmap f (runMState' m t)
+
+instance (Applicative m, Monad m) => Applicative (MState t m) where
+    pure  = return
+    (<*>) = ap
 
 instance (MonadPlus m) => MonadPlus (MState t m) where
     mzero       = MState $ \_       -> mzero
