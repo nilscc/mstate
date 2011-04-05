@@ -29,7 +29,6 @@ module Control.Concurrent.MState
     , modifyM_
 
       -- * Concurrency
-    , Forkable (..)
     , forkM
     , forkM_
     , killMState
@@ -59,12 +58,6 @@ import Control.Monad.Trans.Peel
 -- new thread sharing the same (modifiable) state use the `forkM` function.
 newtype MState t m a = MState { runMState' :: (TVar t, TVar [(ThreadId, TMVar ())]) -> m a }
 
--- | Typeclass for forkable monads. This is the basic information about how to
--- fork a new thread in the current monad. To start a new thread in a `MState`
--- application you should always use `forkM`.
-class MonadIO m => Forkable m where
-    fork :: m () -> m ThreadId
-
 -- | Wait for all `TMVars` to get filled by their processes.
 waitForTermination :: MonadIO m
                    => TVar [(ThreadId, TMVar ())]
@@ -74,7 +67,7 @@ waitForTermination = liftIO . atomically . (mapM_ (takeTMVar . snd) <=< readTVar
 -- | Run a `MState` application, returning both, the function value and the
 -- final state. Note that this function has to wait for all threads to finish
 -- before it can return the final state.
-runMState :: (Forkable m, MonadPeelIO m)
+runMState :: MonadPeelIO m
           => MState t m a      -- ^ Action to run
           -> t                 -- ^ Initial state value
           -> m (a,t)
@@ -82,7 +75,7 @@ runMState m t = do
   (a, Just t') <- runAndWaitMaybe True m t
   return (a, t')
 
-runAndWaitMaybe :: (Forkable m, MonadPeelIO m)
+runAndWaitMaybe :: MonadPeelIO m
                 => Bool
                 -> MState t m a
                 -> t
@@ -107,7 +100,7 @@ runAndWaitMaybe b m t = do
 -- argument is `True` this function will wait for all threads to finish before
 -- returning the final result, otherwise it will return the function value as
 -- soon as its acquired.
-evalMState :: (Forkable m, MonadPeelIO m)
+evalMState :: MonadPeelIO m
            => Bool              -- ^ Wait for all threads to finish?
            -> MState t m a      -- ^ Action to evaluate
            -> t                 -- ^ Initial state value
@@ -116,7 +109,7 @@ evalMState b m t = runAndWaitMaybe b m t >>= return . fst
 
 -- | Run a `MState` application, ignoring the function value. This function
 -- will wait for all threads to finish before returning the final state.
-execMState :: (Forkable m, MonadPeelIO m)
+execMState :: MonadPeelIO m
            => MState t m a      -- ^ Action to execute
            -> t                 -- ^ Initial state value
            -> m t
@@ -152,8 +145,8 @@ withMState f m = MState $ \s@(r,_) -> do
 
 -}
 
--- | Modify the MState, block all other threads from accessing the state in the
--- meantime (using `atomically` from the "Control.Concurrent.STM" library).
+-- | Modify the `MState`, block all other threads from accessing the state in
+-- the meantime (using `atomically` from the "Control.Concurrent.STM" library).
 modifyM :: MonadIO m => (t -> (a,t)) -> MState t m a
 modifyM f = MState $ \(t,_) ->
     liftIO . atomically $ do
@@ -165,11 +158,14 @@ modifyM f = MState $ \(t,_) ->
 modifyM_ :: MonadIO m => (t -> t) -> MState t m ()
 modifyM_ f = modifyM (\t -> ((), f t))
 
--- | Start a new thread, using the `fork` function from the `Forkable` type
--- class. When using this function, the main process will wait for all child
--- processes to finish (if desired).
-forkM :: (MonadPeelIO m, Forkable m)
-      => MState t m ()         -- ^ State action to be forked
+fork :: MonadPeelIO m => m () -> m ThreadId
+fork m = do
+  k <- peelIO
+  liftIO . forkIO $ k m >> return ()
+
+-- | Start a new stateful thread.
+forkM :: MonadPeelIO m
+      => MState t m ()
       -> MState t m ThreadId
 forkM m = MState $ \s@(_,c) -> do
 
@@ -186,15 +182,15 @@ forkM m = MState $ \s@(_,c) -> do
 
     return tid
 
-forkM_ :: (MonadPeelIO m, Forkable m)
-       => MState t m ()         -- ^ State action to be forked
+forkM_ :: MonadPeelIO m
+       => MState t m ()
        -> MState t m ()
 forkM_ m = do
   _ <- forkM m
   return ()
 
 -- | Kill all threads in the current `MState` application.
-killMState :: Forkable m => MState t m ()
+killMState :: MonadPeelIO m => MState t m ()
 killMState = MState $ \(_,tv) -> do
     tms <- liftIO $ readTVarIO tv
     -- run this in a new thread so it doesn't kill itself
@@ -271,19 +267,6 @@ instance MonadTransPeel (MState t) where
 
 instance MonadPeelIO m => MonadPeelIO (MState t m) where
     peelIO = liftPeel peelIO
-
---------------------------------------------------------------------------------
--- Forkable instances
---------------------------------------------------------------------------------
-
-instance Forkable IO where
-    fork = forkIO
-
-instance Forkable m => Forkable (ReaderT s m) where
-    fork newT = ask >>= lift . fork . runReaderT newT
-
-instance (Error e, Forkable m) => Forkable (ErrorT e m) where
-    fork newT = lift . fork $ runErrorT newT >> return ()
 
 {- $example
 
