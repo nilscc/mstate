@@ -97,7 +97,7 @@ runAndWaitMaybe b m t = do
     if b then do
       -- wait before getting the final state
       waitForTermination c
-      t'  <- liftIO . atomically $ readTVar ref
+      t'  <- liftIO $ readTVarIO ref
       return (a, Just t')
      else
       -- don't wait for other threads
@@ -132,7 +132,7 @@ mapMState :: (MonadIO m, MonadIO n)
 mapMState f m = MState $ \s@(r,_) -> do
     ~(b,v') <- f $ do
         a <- runMState' m s
-        v <- liftIO . atomically $ readTVar r
+        v <- liftIO $ readTVarIO r
         return (a,v)
     liftIO . atomically $ writeTVar r v'
     return b
@@ -196,7 +196,7 @@ forkM_ m = do
 -- | Kill all threads in the current `MState` application.
 killMState :: Forkable m => MState t m ()
 killMState = MState $ \(_,tv) -> do
-    tms <- liftIO . atomically $ readTVar tv
+    tms <- liftIO $ readTVarIO tv
     -- run this in a new thread so it doesn't kill itself
     _ <- liftIO . forkIO $
       mapM_ (killThread . fst) tms
@@ -225,7 +225,7 @@ instance (MonadPlus m) => MonadPlus (MState t m) where
     m `mplus` n = MState $ \t -> runMState' m t `mplus` runMState' n t
 
 instance (MonadIO m) => MonadState t (MState t m) where
-    get     = MState $ \(r,_) -> liftIO . atomically $ readTVar r
+    get     = MState $ \(r,_) -> liftIO $ readTVarIO r
     put val = MState $ \(r,_) -> liftIO . atomically $ writeTVar r val
 
 instance (MonadFix m) => MonadFix (MState t m) where
