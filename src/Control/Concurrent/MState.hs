@@ -32,6 +32,7 @@ module Control.Concurrent.MState
     , forkM
     , forkM_
     , killMState
+    , waitM
 
       -- * Example
       -- $example
@@ -197,6 +198,17 @@ killMState = MState $ \(_,tv) -> do
     _ <- liftIO . forkIO $
       mapM_ (killThread . fst) tms
     return ()
+
+-- | Wait for a thread to finish
+waitM :: MonadPeelIO m => ThreadId -> MState t m ()
+waitM tid = MState $ \(_,c) -> do
+    mw <- liftIO . atomically $ do
+        lookup tid `fmap` readTVar c
+    maybe (return ()) wait' mw
+  where
+    wait' w = liftIO . atomically $ do
+        () <- takeTMVar w
+        putTMVar w () -- clean up again for "waitForTermination"
 
 --------------------------------------------------------------------------------
 -- Monad instances
