@@ -24,6 +24,7 @@ module Control.Concurrent.MState
     , evalMState
     , execMState
     , mapMState
+    , mapMState_
     -- , withMState
     , modifyM
     , modifyM_
@@ -129,6 +130,14 @@ mapMState f m = MState $ \s@(r,_) -> do
         v <- liftIO $ readTVarIO r
         return (a,v)
     liftIO . atomically $ writeTVar r v'
+    return b
+
+mapMState_ :: (MonadIO m, MonadIO n)
+           => (m a -> n b)
+           -> MState t m a
+           -> MState t n b
+mapMState_ f m = MState $ \s -> do
+    b <- f $ runMState' m s
     return b
 
 {- TODO: What's the point of this function? Does it make sense for MStates?
