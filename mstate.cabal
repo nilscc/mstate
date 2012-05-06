@@ -20,7 +20,7 @@ Library
     Hs-Source-Dirs:     src
     Build-Depends:
         base        == 4.*,
-        mtl         == 2.*,
+        mtl         == 2.0.*,
         stm         == 2.*,
         monad-peel  == 0.1.*
 
