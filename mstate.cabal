@@ -8,7 +8,7 @@ Description:    MState offers a State monad which can be used in concurrent
 Author:         Nils Schweinsberg
 Maintainer:     <mail@n-sch.de>
 
-Version:        0.2.6
+Version:        0.2.7
 Category:       Concurrency, Monads
 License:        BSD3
 License-File:   LICENSE

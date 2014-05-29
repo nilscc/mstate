@@ -16,7 +16,7 @@
 ---------------------------------------------------------------------------
 
 module Control.Concurrent.MState
-    ( 
+    (
       -- * The MState Monad
       MState
     , module Control.Monad.State.Class
@@ -38,8 +38,6 @@ module Control.Concurrent.MState
       -- * Example
       -- $example
     ) where
-
-import Prelude hiding (catch)
 
 import Control.Applicative
 import Control.Monad.State.Class
@@ -237,6 +235,10 @@ instance (Applicative m, Monad m) => Applicative (MState t m) where
     pure  = return
     (<*>) = ap
 
+instance (Alternative m, Monad m) => Alternative (MState t m) where
+    empty   = MState $ \_ -> empty
+    m <|> n = MState $ \t -> runMState' m t <|> runMState' n t
+
 instance (MonadPlus m) => MonadPlus (MState t m) where
     mzero       = MState $ \_       -> mzero
     m `mplus` n = MState $ \t -> runMState' m t `mplus` runMState' n t
@@ -296,13 +298,13 @@ Example usage:
 > import Control.Concurrent
 > import Control.Concurrent.MState
 > import Control.Monad.State
-> 
+>
 > type MyState a = MState Int IO a
-> 
+>
 > -- Expected state value: 2
 > main :: IO ()
 > main = print =<< execMState incTwice 0
-> 
+>
 > incTwice :: MyState ()
 > incTwice = do
 >     -- increase in the current thread
