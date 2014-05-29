@@ -1,3 +1,4 @@
 dist/
 _darcs/
 *.swp
+.hs_tags
