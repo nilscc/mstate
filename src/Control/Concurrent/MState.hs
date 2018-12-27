@@ -42,7 +42,7 @@ module Control.Concurrent.MState
 import Control.Applicative
 import Control.Monad.State.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import qualified Control.Monad.Fail as Fail
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -76,7 +76,7 @@ runMState m t = do
   (a, t') <- runAndWaitMaybe True m t
   case t' of
       Just t'' -> return (a, t'')
-      _ -> undefined	-- impossible
+      _ -> undefined  -- impossible
 
 runAndWaitMaybe :: MonadPeelIO m
                 => Bool
@@ -133,7 +133,7 @@ mapMState f m = MState $ \s@(r,_) -> do
     liftIO . atomically $ writeTVar r v'
     return b
 
-mapMState_ :: (MonadIO m, MonadIO n)
+mapMState_ :: (MonadIO n)
            => (m a -> n b)
            -> MState t m a
            -> MState t n b
