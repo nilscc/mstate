@@ -6,7 +6,7 @@ Description:    MState offers a State monad which can be used in concurrent
                 the state values (if desired).
 
 Author:         Nils Schweinsberg
-Maintainer:     <mail@n-sch.de>
+Maintainer:     <mail@nils.cc>
 
 Version:        0.2.8
 Category:       Concurrency, Monads
