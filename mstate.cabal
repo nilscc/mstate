@@ -22,7 +22,8 @@ Library
         base       == 4.*,
         mtl,
         stm,
-        monad-peel >= 0.1.1
+        monad-peel >= 0.1.1,
+        fail
 
     Exposed-Modules:
         Control.Concurrent.MState

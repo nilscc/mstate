@@ -43,6 +43,7 @@ import Control.Applicative
 import Control.Monad.State.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import qualified Control.Monad.Fail as Fail
 import Control.Monad.Reader
 import Control.Monad.Writer
 
@@ -72,8 +73,10 @@ runMState :: MonadPeelIO m
           -> t                 -- ^ Initial state value
           -> m (a,t)
 runMState m t = do
-  (a, Just t') <- runAndWaitMaybe True m t
-  return (a, t')
+  (a, t') <- runAndWaitMaybe True m t
+  case t' of
+      Just t'' -> return (a, t'')
+      _ -> undefined	-- impossible
 
 runAndWaitMaybe :: MonadPeelIO m
                 => Bool
@@ -221,12 +224,14 @@ waitM tid = MState $ \(_,c) -> do
 -- Monad instances
 --------------------------------------------------------------------------------
 
+instance (Fail.MonadFail m) => Fail.MonadFail (MState t m) where
+    fail str = MState $ \_ -> Fail.fail str
+
 instance (Monad m) => Monad (MState t m) where
     return a = MState $ \_ -> return a
     m >>= k  = MState $ \t -> do
         a <- runMState' m t
         runMState' (k a) t
-    fail str = MState $ \_ -> fail str
 
 instance (Functor f) => Functor (MState t f) where
     fmap f m = MState $ \t -> fmap f (runMState' m t)
