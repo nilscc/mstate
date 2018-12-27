@@ -15,6 +15,10 @@ License-File:   LICENSE
 Cabal-Version:  >= 1.6
 Build-Type:     Simple
 
+source-repository head
+  type:         git
+  location:     https://github.com/nilscc/mstate
+
 Library
     GHC-Options:        -Wall
     Hs-Source-Dirs:     src
