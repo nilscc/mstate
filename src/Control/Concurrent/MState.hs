@@ -45,7 +45,6 @@ import Control.Monad.State.Class
 import Control.Monad.Cont
 import Control.Monad.Except
 import qualified Control.Monad.Fail as Fail
-import Control.Monad.Fix
 import Control.Monad.Reader
 import Control.Monad.Writer
 
