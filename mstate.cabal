@@ -8,11 +8,11 @@ Description:    MState offers a State monad which can be used in concurrent
 Author:         Nils Schweinsberg
 Maintainer:     <mail@nils.cc>
 
-Version:        0.2.8
+Version:        0.2.10
 Category:       Concurrency, Monads
 License:        BSD3
 License-File:   LICENSE
-Cabal-Version:  >= 1.6
+Cabal-Version:  >= 1.10
 Build-Type:     Simple
 
 source-repository head
@@ -22,12 +22,13 @@ source-repository head
 Library
     GHC-Options:        -Wall
     Hs-Source-Dirs:     src
+    default-language:   Haskell2010
     Build-Depends:
-        base       == 4.*,
-        mtl,
-        stm,
-        monad-peel >= 0.1.1,
-        fail
+        base                  == 4.*,
+        mtl                   >= 2.2.2 && < 2.3,
+        stm                   >= 2.5.0 && < 2.6,
+        monad-peel            >= 0.3 && < 0.4,
+        fail                  >= 4.9.0 && < 4.10
 
     Exposed-Modules:
         Control.Concurrent.MState
