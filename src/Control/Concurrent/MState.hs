@@ -41,6 +41,7 @@ module Control.Concurrent.MState
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Fix
 import Control.Monad.State.Class
 import Control.Monad.Cont
 import Control.Monad.Except
@@ -229,7 +230,6 @@ instance (Fail.MonadFail m) => Fail.MonadFail (MState t m) where
     fail str = MState $ \_ -> Fail.fail str
 
 instance (Monad m) => Monad (MState t m) where
-    return a = MState $ \_ -> return a
     m >>= k  = MState $ \t -> do
         a <- runMState' m t
         runMState' (k a) t
@@ -238,7 +238,7 @@ instance (Functor f) => Functor (MState t f) where
     fmap f m = MState $ \t -> fmap f (runMState' m t)
 
 instance (Applicative m, Monad m) => Applicative (MState t m) where
-    pure  = return
+    pure a = MState $ \_ -> return a
     (<*>) = ap
 
 instance (Alternative m, Monad m) => Alternative (MState t m) where

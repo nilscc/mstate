@@ -1,4 +1,5 @@
 dist/
+dist-newstyle/
 _darcs/
 *.swp
 .hs_tags
